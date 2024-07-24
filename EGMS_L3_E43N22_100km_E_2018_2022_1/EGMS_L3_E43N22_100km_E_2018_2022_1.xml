@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TILE>
+   <product_level>L3</product_level>
+   <production_facility>1</production_facility>
+   <production_date>24/08/2023</production_date>
+   <dem><version>COP-DEM_GLO-30/2020_1</version></dem>
+   <gnss>
+      <version>2.0</version>
+   </gnss>
+</TILE>
