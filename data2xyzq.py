@@ -1,41 +1,45 @@
+# conda activate pygmt
 import pandas as pd
-#fileIN="EGMS_L3_E43N22_100km_E_2018_2022_1/EGMS_L3_E43N22_100km_E_2018_2022_1.csv"
-fileIN_1="U/EGMS_L3_E42N21_100km_U_2018_2022_1/EGMS_L3_E42N21_100km_U_2018_2022_1.csv"
-fileIN_2="U/EGMS_L3_E43N21_100km_U_2018_2022_1/EGMS_L3_E43N21_100km_U_2018_2022_1.csv"
-fileIN_3="U/EGMS_L3_E43N22_100km_U_2018_2022_1/EGMS_L3_E43N22_100km_U_2018_2022_1.csv"
-fileIN_4="U/EGMS_L3_E44N22_100km_U_2018_2022_1/EGMS_L3_E44N22_100km_U_2018_2022_1.csv"
+import glob
+import pygmt
 
-PA="9.696/42.617"
-PB="21.0/47.343"
-region_map = [6, 22,41, 48]
+fileTopoOUT="OUT_topo.csv"
 
+# read *.csv
+csv_files = glob.glob('E/*2018_2022_1/*.csv', recursive=True)
+csv_files = glob.glob('U/*2018_2022_1/*.csv', recursive=True)
 fileOUT="OUT.csv" # more infor of format: https://docs.generic-mapping-tools.org/6.5/project.html
 
-Plot = 1  # 0:No plot the figure
+# Read all CSV files and store them into a list
+dfs = [pd.read_csv(file, usecols=['easting', 'northing', 'mean_velocity']) for file in csv_files]
+df = pd.concat(dfs, ignore_index=True)
+print(df)
 
-# read csv file, more infor of format: https://land.copernicus.eu/en/products/european-ground-motion-service
-df1 = pd.read_csv(fileIN_1)
-df2 = pd.read_csv(fileIN_2)
-df3 = pd.read_csv(fileIN_3)
-df4 = pd.read_csv(fileIN_3)
-df = pd.concat([df1, df2, df3, df4], ignore_index=True)
-print(df.head())
+# Profile settings
+PA="9.696/42.617"
+PB="21.0/47.343"
+
+PA="10.99031082816053/42.62324008933551"
+PB="13.3242832934694/43.73597452591967"
+
+region_map = [6, 22,41, 48]
+
+Plot = 0  # 0:No plot the figure
 
 # ----------------------------------------------------------------------------
-# ETRS89-LAEA转经纬度
+# transfer ETRS89-LAEA to longitude and latitude
 from pyproj import Proj, transform
 etrs89_laea = Proj(init='epsg:3035')
 wgs84 = Proj(init='epsg:4326')
 x_laea, y_laea = df['easting'], df['northing']
 df['lon'], df['lat'] = transform(etrs89_laea, wgs84, x_laea, y_laea)
 
-# 提取指定的三列数据（假设列名为 'column1', 'column2', 'column3'）
+# Extract the specified three columns of data
 columns_to_extract = ['lon', 'lat', 'mean_velocity']
 df_selected = df[columns_to_extract]
 
 # ----------------------------------------------------------------------------
-# 提取数据
-import pygmt
+# Extracted by pygmt
 # gmt project $file_xyzv -C$PxA/$PyA -E$PxB/$PyB -Fxyzpqrs -W-$Width/$Width -Lw -Q
 track_df = pygmt.project(
     data=df_selected,
@@ -46,26 +50,39 @@ track_df = pygmt.project(
     # length="w"
 )
 track_df.columns = ['lon', 'lat', 'mean_velocity','p', 'q', 'r', 's']
-# 将提取的数据保存到新的CSV文件
-# columns_to_extract = ['lon', 'lat', 'mean_velocity', 'q']
-# df_columns_to_extract = track_df[columns_to_extract]
-track_df.to_csv(fileOUT, index=False)
-# 显示前几行数据
-print(track_df.head())
 
-'''
-# 将提取的数据保存到新的CSV文件
-df_selected.to_csv('EGMS_L3_E43N22_100km_U_2018_2022_1/selected_file.csv', index=False)
-# 显示前几行数据
-print(df_selected.head())
-'''
+# Save the extracted data to a new CSV file
+track_df.to_csv(fileOUT, index=False)
+print(track_df.head())
 
 
 # ----------------------------------------------------------------------------
-# Step 2
+# Topography
+grid_map = pygmt.datasets.load_earth_relief(
+    resolution="01m",
+    region=region_map,
+)
+track_topo = pygmt.project(
+    center=PA,  # Start point 
+    endpoint=PB,  # End point 
+    unit=True,  #  Set units for p,q to km.  
+    generate=0.1
+)
+track_topo = pygmt.grdtrack(
+    grid=grid_map,
+    points=track_topo,
+    newcolname="elevation",
+)
+track_topo.to_csv(fileTopoOUT, index=False)
+
+
+
+
+# ----------------------------------------------------------------------------
+# Step 2: Plot
 if Plot == 0:
     print("Plot is 0, no plotting the figure.")
-    exit()  # 终止代码执行
+    exit()  # Terminate code execution
 else:
     print("A is not 1, continuing the code.")
 
